@@ -1,12 +1,12 @@
 import path from "path";
 import { serverUrl } from "./env.config.js";
 
-const swaggerOptions = {
+export const swaggerOptions = {
   definition: {
     openapi: "3.0.0",
     info: {
-      title: "Pizza Restaurant API",
-      version: "1.0.0",
+      title: "API Tienda de Perfumes",
+      version: "0.9.0",
     },
     servers: [
       {
@@ -26,4 +26,4 @@ const swaggerOptions = {
   apis: [`${path.join(__dirname, "./routes/*.js")}`],
 };
 
-export default swaggerOptions;
+ 

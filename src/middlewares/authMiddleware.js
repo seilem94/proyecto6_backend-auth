@@ -20,7 +20,7 @@ export const authenticateToken = async (req, res, next) => {
 
     try {
       // Verificar token
-      const decoded = jwt.verify(token, envConfig.jwt.secret);
+      const decoded = jwt.verify(token, env.jwt.secret);
 
       // Buscar usuario
       req.user = await User.findById(decoded.id).select('-password');
@@ -63,7 +63,8 @@ export const authorize = (...roles) => {
 
 // Generar token JWT
 export const generateToken = (id) => {
-  return jwt.sign({ id }, envConfig.jwt.secret, {
-    expiresIn: envConfig.jwt.expire
+  return jwt.sign({ id }, 
+    env.jwt.secret, {
+    expiresIn: env.jwt.expire
   });
 };

@@ -1,78 +1,233 @@
 import Perfume from '../models/perfumeModel.js';
 import { validationResult } from 'express-validator';
 
-// Get all perfumes for the authenticated user
-export const getPerfumes = async (req, res, next) => {
+
+// @desc    Crear un nuevo perfume
+// @route   POST /api/perfume/create
+// @access  Private/Admin
+export const createPerfume = async (req, res) => {
   try {
-    const perfumes = await Perfume.find({ user: req.user.id });
-    res.json(perfumes);
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { name, brand, description, price, stock, category, image } = req.body;
+    const perfume = await Perfume.create({
+      name,
+      brand,
+      description,
+      price,
+      stock,
+      category,
+      image,
+      createdBy: req.user._id
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Perfume creado exitosamente',
+      data: perfume
+    });
   } catch (error) {
-    next(error);
+    res.status(400).json({
+      success: false,
+      message: 'Error al crear perfume',
+      error: error.message
+    });
   }
 };
 
-// Get single perfume
-export const getPerfume = async (req, res, next) => {
+const Perfume = require('../models/perfumeModel');
+
+// @desc    Crear un nuevo perfume
+// @route   POST /api/product/create
+// @access  Private/Admin
+exports.createPerfume = async (req, res) => {
   try {
-    const perfume = await Perfume.findOne({ _id: req.params.id, user: req.user.id });
+    const { name, brand, description, price, stock, category, image } = req.body;
+
+    const perfume = await Perfume.create({
+      name,
+      brand,
+      description,
+      price,
+      stock,
+      category,
+      image,
+      createdBy: req.user._id
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Perfume creado exitosamente',
+      data: perfume
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: 'Error al crear perfume',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Obtener todos los perfumes
+// @route   GET /api/perfume/readall
+// @access  Public
+export const getAllPerfumes = async (req, res) => {
+  try {
+    const { category, minPrice, maxPrice, search } = req.query;
+
+    let query = { isActive: true };
+
+    // Filtrar por categoría
+    if (category) {
+      query.category = category;
+    }
+
+    // Filtrar por rango de precio
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
+    }
+
+    // Buscar por nombre o marca
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { brand: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const perfumes = await Perfume.find(query)
+      .populate('createdBy', 'name email')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: perfumes.length,
+      data: perfumes
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener perfumes',
+      error: error.message
+    });
+  }
+};
+
+
+// @desc    Obtener un perfume por ID
+// @route   GET /api/product/readone/:id
+// @access  Public
+export const getPerfumeById = async (req, res) => {
+  try {
+    const perfume = await Perfume.findById(req.params.id)
+      .populate('createdBy', 'name email');
+
+    if (!perfume || !perfume.isActive) {
+      return res.status(404).json({
+        success: false,
+        message: 'Perfume no encontrado'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: perfume
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener perfume',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Actualizar un perfume
+// @route   PUT /api/product/update/:id
+// @access  Private/Admin
+export const updatePerfume = async (req, res) => {
+try {
+    let perfume = await Perfume.findById(req.params.id);
+
     if (!perfume) {
-      return res.status(404).json({ message: 'Perfume no encontrado' });
-    }
-    res.json(perfume);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Create perfume
-export const createPerfume = async (req, res, next) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(404).json({
+        success: false,
+        message: 'Perfume no encontrado'
+      });
     }
 
-    const { name, description, price } = req.body;
-    const perfume = new Perfume({ name, description, price, user: req.user.id });
-    await perfume.save();
-    res.status(201).json(perfume);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Update perfume
-export const updatePerfume = async (req, res, next) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+    // Verificar si el usuario es el creador o es admin
+    if (perfume.createdBy.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'No autorizado para actualizar este perfume'
+      });
     }
 
-    const { name, description, price } = req.body;
-    const perfume = await Perfume.findOneAndUpdate(
-      { _id: req.params.id, user: req.user.id },
-      { name, description, price },
-      { new: true }
+    perfume = await Perfume.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      {
+        new: true,
+        runValidators: true
+      }
     );
-    if (!perfume) {
-      return res.status(404).json({ message: 'Perfume no encontrado' });
-    }
-    res.json(perfume);
+
+    res.status(200).json({
+      success: true,
+      message: 'Perfume actualizado exitosamente',
+      data: perfume
+    });
   } catch (error) {
-    next(error);
+    res.status(400).json({
+      success: false,
+      message: 'Error al actualizar perfume',
+      error: error.message
+    });
   }
 };
 
-// Delete perfume
-export const deletePerfume = async (req, res, next) => {
-  try {
-    const perfume = await Perfume.findOneAndDelete({ _id: req.params.id, user: req.user.id });
+// @desc    Eliminar un perfume (soft delete)
+// @route   DELETE /api/product/delete/:id
+// @access  Private/Admin
+export const deletePerfume = async (req, res) => {
+try {
+    const perfume = await Perfume.findById(req.params.id);
+
     if (!perfume) {
-      return res.status(404).json({ message: 'Perfume no encontrado' });
+      return res.status(404).json({
+        success: false,
+        message: 'Perfume no encontrado'
+      });
     }
-    res.json({ message: 'Perfume eliminado' });
+
+    // Verificar si el usuario es el creador o es admin
+    if (perfume.createdBy.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'No autorizado para eliminar este perfume'
+      });
+    }
+
+    // Soft delete
+    perfume.isActive = false;
+    await perfume.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Perfume eliminado exitosamente'
+    });
   } catch (error) {
-    next(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al eliminar perfume',
+      error: error.message
+    });
   }
 };

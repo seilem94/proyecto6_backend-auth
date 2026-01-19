@@ -1,63 +1,208 @@
 import Cart from '../models/cartModel.js';
 import Perfume from '../models/perfumeModel.js';
 
-// Get user's cart
-export const getCart = async (req, res, next) => {
+// @desc    Obtener carrito del usuario
+// @route   GET /api/cart
+// @access  Private
+export const getCart = async (req, res) => {
   try {
-    let cart = await Cart.findOne({ user: req.user.id }).populate('items.perfume');
+    let cart = await Cart.findOne({ user: req.user._id })
+      .populate('items.perfume')
+      .populate('user', 'name email');
+
     if (!cart) {
-      cart = new Cart({ user: req.user.id, items: [] });
-      await cart.save();
+      cart = await Cart.create({ user: req.user._id, items: [] });
     }
-    res.json(cart);
+
+    res.status(200).json({
+      success: true,
+      data: cart
+    });
   } catch (error) {
-    next(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener carrito',
+      error: error.message
+    });
   }
 };
 
-// Add item to cart
-export const addToCart = async (req, res, next) => {
+// @desc    Agregar item al carrito
+// @route   POST /api/cart/add
+// @access  Private
+export const addToCart = async (req, res) => {
   try {
-    const { perfumeId, quantity } = req.body;
+    const { perfumeId, quantity = 1 } = req.body;
+
+    if (!perfumeId) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID del perfume es requerido'
+      });
+    }
+
+    // Verificar que el perfume existe
     const perfume = await Perfume.findById(perfumeId);
-    if (!perfume) {
-      return res.status(404).json({ message: 'Perfume no encontrado' });
+    if (!perfume || !perfume.isActive) {
+      return res.status(404).json({
+        success: false,
+        message: 'Perfume no encontrado'
+      });
     }
 
-    let cart = await Cart.findOne({ user: req.user.id });
+    // Verificar stock
+    if (perfume.stock < quantity) {
+      return res.status(400).json({
+        success: false,
+        message: 'Stock insuficiente'
+      });
+    }
+
+    // Buscar o crear carrito
+    let cart = await Cart.findOne({ user: req.user._id });
     if (!cart) {
-      cart = new Cart({ user: req.user.id, items: [] });
+      cart = await Cart.create({ user: req.user._id, items: [] });
     }
 
-    const existingItem = cart.items.find(item => item.perfume.toString() === perfumeId);
-    if (existingItem) {
-      existingItem.quantity += quantity || 1;
-    } else {
-      cart.items.push({ perfume: perfumeId, quantity: quantity || 1 });
-    }
-
+    // Agregar item
+    cart.addItem(perfume, quantity);
     await cart.save();
-    await cart.populate('items.perfume');
-    res.json(cart);
+
+    // Poblar y devolver carrito actualizado
+    cart = await Cart.findById(cart._id).populate('items.perfume');
+
+    res.status(200).json({
+      success: true,
+      message: 'Producto agregado al carrito',
+      data: cart
+    });
   } catch (error) {
-    next(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al agregar al carrito',
+      error: error.message
+    });
   }
 };
 
-// Remove item from cart
-export const removeFromCart = async (req, res, next) => {
+// @desc    Actualizar cantidad de item en carrito
+// @route   PUT /api/cart/update/:perfumeId
+// @access  Private
+export const updateCartItem = async (req, res) => {
   try {
     const { perfumeId } = req.params;
-    const cart = await Cart.findOne({ user: req.user.id });
-    if (!cart) {
-      return res.status(404).json({ message: 'Carrito no encontrado' });
+    const { quantity } = req.body;
+
+    if (!quantity || quantity < 1) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cantidad inválida'
+      });
     }
 
-    cart.items = cart.items.filter(item => item.perfume.toString() !== perfumeId);
+    const cart = await Cart.findOne({ user: req.user._id });
+    if (!cart) {
+      return res.status(404).json({
+        success: false,
+        message: 'Carrito no encontrado'
+      });
+    }
+
+    // Verificar stock
+    const perfume = await Perfume.findById(perfumeId);
+    if (!perfume || perfume.stock < quantity) {
+      return res.status(400).json({
+        success: false,
+        message: 'Stock insuficiente'
+      });
+    }
+
+    const updated = cart.updateItemQuantity(perfumeId, quantity);
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: 'Producto no encontrado en el carrito'
+      });
+    }
+
     await cart.save();
     await cart.populate('items.perfume');
-    res.json(cart);
+
+    res.status(200).json({
+      success: true,
+      message: 'Cantidad actualizada',
+      data: cart
+    });
   } catch (error) {
-    next(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al actualizar carrito',
+      error: error.message
+    });
+  }
+};
+
+
+
+// @desc    Eliminar item del carrito
+// @route   DELETE /api/cart/remove/:perfumeId
+// @access  Private
+export const removeFromCart = async (req, res) => {
+  try {
+    const { perfumeId } = req.params;
+
+    const cart = await Cart.findOne({ user: req.user._id });
+    if (!cart) {
+      return res.status(404).json({
+        success: false,
+        message: 'Carrito no encontrado'
+      });
+    }
+
+    cart.removeItem(perfumeId);
+    await cart.save();
+    await cart.populate('items.perfume');
+
+    res.status(200).json({
+      success: true,
+      message: 'Producto eliminado del carrito',
+      data: cart
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error al eliminar del carrito',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Vaciar carrito
+// @route   DELETE /api/cart/clear
+// @access  Private
+export const clearCart = async (req, res) => {
+  try {
+    const cart = await Cart.findOne({ user: req.user._id });
+    if (!cart) {
+      return res.status(404).json({
+        success: false,
+        message: 'Carrito no encontrado'
+      });
+    }
+
+    cart.items = [];
+    await cart.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Carrito vaciado',
+      data: cart
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error al vaciar carrito',
+      error: error.message
+    });
   }
 };

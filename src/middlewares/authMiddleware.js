@@ -1,19 +1,69 @@
 import jwt from 'jsonwebtoken';
+import User from '../models/userModel.js';
 import { env } from '../config/env.config.js';
 
-export const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+// Proteger rutas - verificar token JWT
+export const authenticateToken = async (req, res, next) => {
+  try {
+    let token;
 
-  if (!token) {
-    return res.status(401).json({ message: 'Acceso denegado. Token requerido.' });
-  }
-
-  jwt.verify(token, env.jwtSecret, (err, user) => {
-    if (err) {
-      return res.status(403).json({ message: 'Token inválido.' });
+    // Verificar si el token existe en el header Authorization
+    if ( req.headers.authorization && req.headers.authorization.startsWith('Bearer') ) {
+      token = req.headers.authorization.split(' ')[1];
     }
-    req.user = user; // Adjuntar usuario decodificado al request
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'No autorizado. Token no proporcionado'
+      });
+    }
+
+    try {
+      // Verificar token
+      const decoded = jwt.verify(token, envConfig.jwt.secret);
+
+      // Buscar usuario
+      req.user = await User.findById(decoded.id).select('-password');
+
+      if (!req.user || !req.user.isActive) {
+        return res.status(401).json({
+          success: false,
+          message: 'Usuario no encontrado o inactivo'
+        });
+      }
+
+      next();
+    } catch (error) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token inválido o expirado'
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error en la autenticación',
+      error: error.message
+    });
+  }
+};
+
+// Middleware para verificar roles
+export const authorize = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: `El rol ${req.user.role} no tiene permiso para acceder a esta ruta`
+      });
+    }
     next();
+  };
+};
+
+// Generar token JWT
+export const generateToken = (id) => {
+  return jwt.sign({ id }, envConfig.jwt.secret, {
+    expiresIn: envConfig.jwt.expire
   });
 };

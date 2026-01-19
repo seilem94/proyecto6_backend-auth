@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 import { env } from "../config/env.config.js";
 
@@ -9,10 +10,9 @@ export const connectDB = async () => {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
-
-    console.log("Base de datos conectada");
+    console.log(`MongoDB conectado: ${conn.connection.host}`);
   } catch (error) {
-    console.log(error);
+    console.log(`Error de conexión a MongoDB: ${error.message}`);
     process.exit(1);
   }
 };

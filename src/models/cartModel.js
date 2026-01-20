@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const cartItemSchema = new mongoose.Schema({
   perfume: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Perfume',
+    ref: 'perfume',
     required: true
   },
   quantity: {
@@ -21,14 +21,17 @@ const cartItemSchema = new mongoose.Schema({
 const cartSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'user',
     required: true,
     unique: true
   },
-  items: [cartItemSchema],
-  totalItems: {
-    type: Number,
-    default: 0
+  items: {
+    type: [cartItemSchema],
+    default: []
+  },
+  totalItems: { 
+    type: Number, 
+    default: 0 
   },
   totalPrice: {
     type: Number,
@@ -38,15 +41,13 @@ const cartSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   }
-}, {
-  timestamps: true
-});
+}, {timestamps: true});
 
 // Calcular totales antes de guardar
-cartSchema.pre('save', function(next) {
-  this.totalItems = this.items.reduce((acc, item) => acc + item.quantity, 0);
-  this.totalPrice = this.items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  next();
+cartSchema.pre('save', function () {
+  const items = this.items || [];
+  this.totalItems = items.reduce((acc, item) => acc + (item.quantity || 0), 0);
+  this.totalPrice = items.reduce((acc, item) => acc + ((item.price || 0) * (item.quantity || 0)), 0);
 });
 
 // Método para agregar item al carrito

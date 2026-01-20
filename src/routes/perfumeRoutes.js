@@ -22,7 +22,7 @@ const perfumeValidation = [
 
 /**
  * @swagger
- * /api/perfume/create:
+ * /api/perfumes/create:
  *   post:
  *     summary: Crear un nuevo perfume
  *     tags: [Perfumes]
@@ -44,7 +44,7 @@ router.post('/create', authenticateToken, authorize('admin'), createPerfume);
 
 /**
  * @swagger
- * /api/perfume/readall:
+ * /api/perfumes/readall:
  *   get:
  *     summary: Obtener todos los perfumes
  *     tags: [Perfumes]
@@ -72,12 +72,18 @@ router.post('/create', authenticateToken, authorize('admin'), createPerfume);
  *     responses:
  *       200:
  *         description: Lista de perfumes
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Perfume'
  */
 router.get('/readall', authenticateToken, getAllPerfumes);
 
 /**
  * @swagger
- * /api/perfume/readone/{id}:
+ * /api/perfumes/readone/{id}:
  *   get:
  *     summary: Obtener un perfume por ID
  *     tags: [Perfumes]
@@ -91,6 +97,10 @@ router.get('/readall', authenticateToken, getAllPerfumes);
  *     responses:
  *       200:
  *         description: Detalles del perfume
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Perfume'
  *       404:
  *         description: Perfume no encontrado
  */
@@ -98,7 +108,7 @@ router.get('/readone/:id', authenticateToken, getPerfumeById);
 
 /**
  * @swagger
- * /api/perfume/update/{id}:
+ * /api/perfumes/update/{id}:
  *   put:
  *     summary: Actualizar un perfume
  *     tags: [Perfumes]
@@ -120,16 +130,20 @@ router.get('/readone/:id', authenticateToken, getPerfumeById);
  *     responses:
  *       200:
  *         description: Perfume actualizado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Perfume'
  *       401:
  *         description: No autorizado
  *       404:
  *         description: Perfume no encontrado
  */
-router.post('/update/:id', authenticateToken, authorize('admin'), updatePerfume);
+router.put('/update/:id', authenticateToken, authorize('admin'), updatePerfume);
 
 /**
  * @swagger
- * /api/perfume/delete/{id}:
+ * /api/perfumes/{id}:
  *   delete:
  *     summary: Eliminar un perfume
  *     tags: [Perfumes]

@@ -3,7 +3,7 @@ import { validationResult } from 'express-validator';
 
 
 // @desc    Crear un nuevo perfume
-// @route   POST /api/perfume/create
+// @route   POST /api/perfumes/create
 // @access  Private/Admin
 export const createPerfume = async (req, res) => {
   try {
@@ -40,7 +40,7 @@ export const createPerfume = async (req, res) => {
 
 
 // @desc    Obtener todos los perfumes
-// @route   GET /api/perfume/readall
+// @route   GET /api/perfumes/readall
 // @access  Public
 export const getAllPerfumes = async (req, res) => {
   try {
@@ -88,7 +88,7 @@ export const getAllPerfumes = async (req, res) => {
 
 
 // @desc    Obtener un perfume por ID
-// @route   GET /api/product/readone/:id
+// @route   GET /api/perfumes/readone/:id
 // @access  Public
 export const getPerfumeById = async (req, res) => {
   try {
@@ -116,7 +116,7 @@ export const getPerfumeById = async (req, res) => {
 };
 
 // @desc    Actualizar un perfume
-// @route   PUT /api/product/update/:id
+// @route   PUT /api/perfumes/update/:id
 // @access  Private/Admin
 export const updatePerfume = async (req, res) => {
 try {
@@ -161,7 +161,7 @@ try {
 };
 
 // @desc    Eliminar un perfume (soft delete)
-// @route   DELETE /api/product/delete/:id
+// @route   DELETE /api/perfumes/:id
 // @access  Private/Admin
 export const deletePerfume = async (req, res) => {
 try {

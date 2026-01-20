@@ -5,14 +5,26 @@ import { validationResult } from 'express-validator';
 // @desc    Registrar nuevo usuario
 // @route   POST /api/user/register
 // @access  Public
-export const register = async (req, res) => {
+export const register = async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+    const { name, email, password} = req.body;
+
+    // Validar que todos los campos requeridos estén presentes
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Por favor proporcione nombre, email y contraseña'
+      });
     }
 
-    const { name, email, password} = req.body;
+    // Verificar si el usuario ya existe
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      return res.status(400).json({
+        success: false,
+        message: 'El usuario ya existe con este email'
+      });
+    }
 
     // Crear usuario
     const user = await User.create({
@@ -24,7 +36,7 @@ export const register = async (req, res) => {
     // Generar token
     const token = generateToken(user._id);
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: 'Usuario registrado exitosamente',
       data: {
@@ -33,10 +45,12 @@ export const register = async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('Error en registro:', error);
     res.status(400).json({
       success: false,
       message: 'Error al registrar usuario',
-      error: error.message
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
@@ -125,101 +139,76 @@ export const verifyToken = async (req, res) => {
 // @desc    Actualizar información de usuario
 // @route   PUT /api/user/update
 // @access  Private
-export const updateUser = async (req, res) => {
+export const updateUser = async (req, res, next) => {
   try {
     const { name, email, password, currentPassword } = req.body;
 
     const user = await User.findById(req.user._id);
-    const previousEmail = user.email;
-
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'Usuario no encontrado'
-      });
+      return res.status(404).json({ success: false, message: "Usuario no encontrado" });
     }
 
-    // Validar formato de email si se proporciona
-    if (email && !/^\S+@\S+\.\S+$/.test(email)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Formato de email inválido'
-      });
-    }
-
-    // Verificar si el email ya está en uso por otro usuario
-    if (email && email !== user.email) {
-      const existingUser = await User.findOne({ email });
-      if (existingUser) {
-        return res.status(400).json({
-          success: false,
-          message: 'El email ya está en uso'
-        });
-      }
-    }
-
-    // Si se actualiza la contraseña, verificar la contraseña actual
-    if (password) {
-      if (!currentPassword) {
-        return res.status(400).json({
-          success: false,
-          message: 'Debe proporcionar la contraseña actual para cambiarla'
-        });
-      }
-      const isCurrentPasswordValid = await user.comparePassword(currentPassword);
-      if (!isCurrentPasswordValid) {
-        return res.status(400).json({
-          success: false,
-          message: 'Contraseña actual incorrecta'
-        });
-      }
-    }
-
-    // Actualizar campos
     let hasChanges = false;
+    let emailChanged = false;
+
     if (name && name !== user.name) {
       user.name = name;
       hasChanges = true;
     }
+
     if (email && email !== user.email) {
       user.email = email;
       hasChanges = true;
-      const emailChanged = email && email !== previousEmail;
+      emailChanged = true;
     }
+
+    // Si quieres permitir cambio de password:
     if (password) {
+      if (!currentPassword) {
+        return res.status(400).json({
+          success: false,
+          message: "Debes enviar currentPassword para cambiar la contraseña",
+        });
+      }
+
+      const isMatch = await user.matchPassword(currentPassword);
+      if (!isMatch) {
+        return res.status(401).json({ success: false, message: "Contraseña actual incorrecta" });
+      }
+
       user.password = password;
       hasChanges = true;
     }
 
-    if (hasChanges) {
-      await user.save();
+    if (!hasChanges) {
+      return res.status(400).json({ success: false, message: "No hay cambios para actualizar" });
     }
 
-    // Generar nuevo token si se cambió email o contraseña
+    await user.save();
+
+    // Si tu lógica regenera token al cambiar email/password:
     let token;
     if (emailChanged || password) {
       token = generateToken(user._id);
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: 'Usuario actualizado exitosamente',
-      data: {
-        user: user.toPublicJSON(),
-        ...(token && { token })
-      }
+      message: "Usuario actualizado correctamente",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+      ...(token ? { token } : {}),
     });
   } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: 'Error al actualizar usuario',
-      error: error.message
-    });
+    next(error);
   }
 };
 
 // @desc    Obtener información del usuario autenticado
-// @route   GET /api/user/me
+// @route   GET /api/user/getme
 // @access  Private
 export const getMe = async (req, res) => {
   try {
@@ -240,7 +229,7 @@ export const getMe = async (req, res) => {
 };
 
 // @desc    Desactivar cuenta del usuario (borrado lógico)
-// @route   DELETE /api/user/me
+// @route   DELETE /api/user/deleteme
 // @access  Private
 export const deleteMe = async (req, res) => {
   try {

@@ -15,17 +15,17 @@ const perfumeValidation = [
 /**
  * @swagger
  * tags:
- *   name: Productos
+ *   name: Perfumes
  *   description: Gestión de perfumes
  */
 
 
 /**
  * @swagger
- * /api/product/create:
+ * /api/perfume/create:
  *   post:
  *     summary: Crear un nuevo perfume
- *     tags: [Productos]
+ *     tags: [Perfumes]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -47,7 +47,7 @@ router.post('/create', authenticateToken, authorize('admin'), createPerfume);
  * /api/perfume/readall:
  *   get:
  *     summary: Obtener todos los perfumes
- *     tags: [Productos]
+ *     tags: [Perfumes]
  *     parameters:
  *       - in: query
  *         name: category
@@ -77,10 +77,10 @@ router.get('/readall', authenticateToken, getAllPerfumes);
 
 /**
  * @swagger
- * /api/product/readone/{id}:
+ * /api/perfume/readone/{id}:
  *   get:
  *     summary: Obtener un perfume por ID
- *     tags: [Productos]
+ *     tags: [Perfumes]
  *     parameters:
  *       - in: path
  *         name: id
@@ -98,10 +98,10 @@ router.get('/readone/:id', authenticateToken, getPerfumeById);
 
 /**
  * @swagger
- * /api/product/update/{id}:
+ * /api/perfume/update/{id}:
  *   put:
  *     summary: Actualizar un perfume
- *     tags: [Productos]
+ *     tags: [Perfumes]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -129,10 +129,10 @@ router.post('/update/:id', authenticateToken, authorize('admin'), updatePerfume)
 
 /**
  * @swagger
- * /api/product/delete/{id}:
+ * /api/perfume/delete/{id}:
  *   delete:
  *     summary: Eliminar un perfume
- *     tags: [Productos]
+ *     tags: [Perfumes]
  *     security:
  *       - bearerAuth: []
  *     parameters:

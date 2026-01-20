@@ -20,7 +20,8 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: [true, 'La contraseña es obligatoria'],
-    minlength: [6, 'La contraseña debe tener al menos 6 caracteres']
+    minlength: [6, 'La contraseña debe tener al menos 6 caracteres'],
+    select: false
   },
   role: {
     type: String,
@@ -36,10 +37,13 @@ const userSchema = new mongoose.Schema({
 });
 
 // Encriptar contraseña antes de guardar
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 10);
-  next();
+userSchema.pre('save', async function() {
+  // Solo encriptar si la contraseña fue modificada
+  if (!this.isModified('password')) {
+    return;
+  }  
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
 });
 
 // Método para comparar contraseñas
@@ -58,4 +62,4 @@ userSchema.methods.toPublicJSON = function() {
   };
 };
 
-export default mongoose.model('User', userSchema);
+export default mongoose.model('user', userSchema);

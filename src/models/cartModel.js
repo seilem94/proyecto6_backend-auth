@@ -86,4 +86,4 @@ cartSchema.methods.removeItem = function(perfumeId) {
   );
 };
 
-export default mongoose.model('Cart', cartSchema);
+export default mongoose.model('cart', cartSchema);

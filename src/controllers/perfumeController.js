@@ -38,39 +38,6 @@ export const createPerfume = async (req, res) => {
   }
 };
 
-const Perfume = require('../models/perfumeModel');
-
-// @desc    Crear un nuevo perfume
-// @route   POST /api/product/create
-// @access  Private/Admin
-exports.createPerfume = async (req, res) => {
-  try {
-    const { name, brand, description, price, stock, category, image } = req.body;
-
-    const perfume = await Perfume.create({
-      name,
-      brand,
-      description,
-      price,
-      stock,
-      category,
-      image,
-      createdBy: req.user._id
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Perfume creado exitosamente',
-      data: perfume
-    });
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: 'Error al crear perfume',
-      error: error.message
-    });
-  }
-};
 
 // @desc    Obtener todos los perfumes
 // @route   GET /api/perfume/readall

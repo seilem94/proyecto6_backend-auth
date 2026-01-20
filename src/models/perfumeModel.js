@@ -56,4 +56,4 @@ perfumeSchema.index({ name: 1, brand: 1 });
 perfumeSchema.index({ category: 1 });
 perfumeSchema.index({ price: 1 });
 
-export default mongoose.model('Perfume', perfumeSchema);
+export default mongoose.model('perfume', perfumeSchema);

@@ -27,7 +27,7 @@ const loginValidation = [
 
 /**
  * @swagger
- * /api/user/register:
+ * /api/users/register:
  *   post:
  *     summary: Registrar nuevo usuario
  *     tags: [Usuarios]
@@ -58,7 +58,7 @@ router.post('/register', registerValidation, register);
 
 /**
  * @swagger
- * /api/user/login:
+ * /api/users/login:
  *   post:
  *     summary: Iniciar sesión
  *     tags: [Usuarios]
@@ -85,7 +85,7 @@ router.post('/register', registerValidation, register);
 router.post('/login', loginValidation, login);
 /**
  * @swagger
- * /api/user/verifytoken:
+ * /api/users/verifytoken:
  *   get:
  *     summary: Verificar token JWT
  *     tags: [Usuarios]
@@ -102,7 +102,7 @@ router.get('/verifytoken', authenticateToken, verifyToken);
 
 /**
  * @swagger
- * /api/user/update:
+ * /api/users/update:
  *   put:
  *     summary: Actualizar información del usuario
  *     tags: [Usuarios]
@@ -131,9 +131,9 @@ router.put('/update', authenticateToken, updateUser);
 
 /**
  * @swagger
- * /api/user/me:
+ * /api/users/getme:
  *   get:
- *     summary: Obtener información del usuario autenticado
+ *     summary: Obtener información del usuario autenticado/api/users/getme
  *     tags: [Usuarios]
  *     security:
  *       - bearerAuth: []
@@ -147,7 +147,7 @@ router.get('/getme', authenticateToken, getMe);
 
 /**
  * @swagger
- * /api/user/me:
+ * /api/users/deleteme:
  *   delete:
  *     summary: Desactivar cuenta del usuario autenticado (borrado lógico)
  *     tags: [Usuarios]

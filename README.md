@@ -138,7 +138,7 @@ La API está completamente documentada con Swagger UI. Acceder a:
 http://localhost:3000/api-docs
 ```
 
-### 🔐 Autenticación de Usuarios (`/api/user`)
+### 🔐 Autenticación de Usuarios (`/api/users`)
 
 | Método | Endpoint | Descripción | Autenticación | Rol Requerido |
 |--------|----------|-------------|---------------|---------------|
@@ -183,7 +183,7 @@ http://localhost:3000/api-docs
 }
 ```
 
-### 🛍️ Gestión de Productos (`/api/product`)
+### 🛍️ Gestión de Productos (`/api/perfumes`)
 
 | Método | Endpoint | Descripción | Autenticación | Rol Requerido |
 |--------|----------|-------------|---------------|---------------|

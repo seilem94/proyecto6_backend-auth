@@ -4,3 +4,7 @@ El objetivo de este proyecto es construir una aplicacion backend que admiistre l
 
 También se utilizará OpenAPI y Swagger para documentar la aplicación, y el código seguirá una estructura de carpetas clara con controladores, modelos, rutas y servicios. Finalmente, se desplegará la aplicación a través de render.com y MongoDB Atlas.
 
+# 🛍️ API de Tienda de Perfumes
+
+API REST completa para gestión de perfumes con autenticación JWT, MongoDB y documentación Swagger.
+

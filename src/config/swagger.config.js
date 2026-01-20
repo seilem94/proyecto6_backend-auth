@@ -9,7 +9,7 @@ const swaggerOptions = {
       description: "API REST para gestión de perfumes con autenticación JWT",
       contact: {
         name: "Equipo de Desarrollo",
-        email: "salemhidd1994@gmail.com",
+        email: "dev@dev.com",
       },
     },
     servers: [
@@ -26,6 +26,33 @@ const swaggerOptions = {
         },
       },
       schemas: {
+        User: {
+          type: "object",
+          required: ["username", "email", "password"],
+          properties: {
+            username: {
+              type: "string",
+              description: "Nombre de usuario",
+              maxLength: 50,
+            },
+            email: {
+              type: "string",
+              description: "Correo electrónico del usuario",
+              format: "email",
+            },
+            password: {
+              type: "string",
+              description: "Contraseña del usuario",
+              minLength: 6,
+            },
+            role: {
+              type: "string",
+              description: "Rol del usuario",
+              enum: ["user", "admin"],
+              default: "user",
+            },
+          },
+        },
         Perfume: {
           type: "object",
           required: ["name", "brand", "description", "price", "stock", "category"],
@@ -73,13 +100,59 @@ const swaggerOptions = {
             },
           },
         },
+        Cart: {
+          type: "object",
+          required: ["user", "items"],
+          properties: {
+            user: {
+              type: "string",
+              description: "ID del usuario dueño del carrito",
+            },
+            items: {
+              type: "array",
+              items: { $ref: "#/components/schemas/CartItem" },
+              description:
+                "Lista de ítems en el carrito de compras.",
+            },
+            totalItems: {
+              type: "integer",
+              description:
+                "Total de ítems en el carrito.",
+            },
+            totalPrice: {
+              type: "number",
+              description:
+                "Precio total del carrito.",
+            },
+          },
+        },
+        CartItem: {
+          type: "object",
+          required: ["perfume", "quantity", "price"],
+          properties: {
+            perfume: {
+              type: "string",
+              description: "ID del perfume",
+            },
+            quantity: {
+              type: "integer",
+              description: "Cantidad del perfume",
+              minimum: 1,
+            },
+            price: {
+              type: "number",
+              description: "Precio del perfume",
+              minimum: 0,
+            },
+          },
+        },
       },
     },
     security: [
       {
         bearerAuth: [],
       },
-    ],
+    ]
   },
   apis: ["./src/**/*.js"],
 };

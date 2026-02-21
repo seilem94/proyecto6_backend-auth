@@ -79,7 +79,7 @@ router.post('/create', authenticateToken, authorize('admin'), createPerfume);
  *               items:
  *                 $ref: '#/components/schemas/Perfume'
  */
-router.get('/readall', authenticateToken, getAllPerfumes);
+router.get('/readall', getAllPerfumes);
 
 /**
  * @swagger

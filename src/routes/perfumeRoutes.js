@@ -104,7 +104,7 @@ router.get('/readall', getAllPerfumes);
  *       404:
  *         description: Perfume no encontrado
  */
-router.get('/readone/:id', authenticateToken, getPerfumeById);
+router.get('/readone/:id', getPerfumeById);
 
 /**
  * @swagger

@@ -7,9 +7,8 @@ import { validationResult } from 'express-validator';
 // @access  Public
 export const register = async (req, res, next) => {
   try {
-    const { name, email, password} = req.body;
+    const { name, email, password, role } = req.body; // ← agregar role
 
-    // Validar que todos los campos requeridos estén presentes
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -17,7 +16,6 @@ export const register = async (req, res, next) => {
       });
     }
 
-    // Verificar si el usuario ya existe
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({
@@ -26,14 +24,14 @@ export const register = async (req, res, next) => {
       });
     }
 
-    // Crear usuario
     const user = await User.create({
       name,
       email,
-      password
+      password,
+      // Solo aplicar si es un valor válido del enum — el modelo rechazará cualquier otro
+      ...(role && ['user', 'admin'].includes(role) && { role }),
     });
 
-    // Generar token
     const token = generateToken(user._id);
 
     return res.status(201).json({
@@ -62,7 +60,6 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validar datos
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -70,7 +67,6 @@ export const login = async (req, res) => {
       });
     }
 
-    // Buscar usuario con contraseña
     const user = await User.findOne({ email }).select('+password');
 
     if (!user || !user.isActive) {
@@ -80,7 +76,6 @@ export const login = async (req, res) => {
       });
     }
 
-    // Verificar contraseña
     const isPasswordMatch = await user.comparePassword(password);
 
     if (!isPasswordMatch) {
@@ -90,7 +85,6 @@ export const login = async (req, res) => {
       });
     }
 
-    // Generar token
     const token = generateToken(user._id);
 
     res.status(200).json({
@@ -115,7 +109,6 @@ export const login = async (req, res) => {
 // @access  Private
 export const verifyToken = async (req, res) => {
   try {
-    // Generar nuevo token para mantener la sesión activa
     const token = generateToken(req.user._id);
 
     res.status(200).json({
@@ -135,17 +128,16 @@ export const verifyToken = async (req, res) => {
   }
 };
 
-
 // @desc    Actualizar información de usuario
 // @route   PUT /api/user/update
 // @access  Private
 export const updateUser = async (req, res, next) => {
   try {
-    const { name, email, password, currentPassword } = req.body;
+    const { name, email, password, currentPassword, role } = req.body; // ← agregar role
 
     const user = await User.findById(req.user._id);
     if (!user) {
-      return res.status(404).json({ success: false, message: "Usuario no encontrado" });
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
     }
 
     let hasChanges = false;
@@ -162,18 +154,23 @@ export const updateUser = async (req, res, next) => {
       emailChanged = true;
     }
 
-    // Si quieres permitir cambio de password:
+    // Cambio de rol — solo valores válidos del enum
+    if (role && ['user', 'admin'].includes(role) && role !== user.role) {
+      user.role = role;
+      hasChanges = true;
+    }
+
     if (password) {
       if (!currentPassword) {
         return res.status(400).json({
           success: false,
-          message: "Debes enviar currentPassword para cambiar la contraseña",
+          message: 'Debes enviar currentPassword para cambiar la contraseña',
         });
       }
 
-      const isMatch = await user.matchPassword(currentPassword);
+      const isMatch = await user.comparePassword(currentPassword);
       if (!isMatch) {
-        return res.status(401).json({ success: false, message: "Contraseña actual incorrecta" });
+        return res.status(401).json({ success: false, message: 'Contraseña actual incorrecta' });
       }
 
       user.password = password;
@@ -181,12 +178,11 @@ export const updateUser = async (req, res, next) => {
     }
 
     if (!hasChanges) {
-      return res.status(400).json({ success: false, message: "No hay cambios para actualizar" });
+      return res.status(400).json({ success: false, message: 'No hay cambios para actualizar' });
     }
 
     await user.save();
 
-    // Si tu lógica regenera token al cambiar email/password:
     let token;
     if (emailChanged || password) {
       token = generateToken(user._id);
@@ -194,13 +190,11 @@ export const updateUser = async (req, res, next) => {
 
     return res.status(200).json({
       success: true,
-      message: "Usuario actualizado correctamente",
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-      },
-      ...(token ? { token } : {}),
+      message: 'Usuario actualizado correctamente',
+      data: {
+        user: user.toPublicJSON(),
+        ...(token ? { token } : {}),
+      }
     });
   } catch (error) {
     next(error);

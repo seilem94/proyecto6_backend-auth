@@ -1,6 +1,9 @@
 import express from 'express';
 import {
   createPaymentIntent,
+  confirmOrder,
+  getMyOrders,
+  getOrderById,
   getPaymentIntent,
   stripeWebhook,
 } from '../controllers/orderController.js';
@@ -12,78 +15,111 @@ const router = express.Router();
  * @swagger
  * tags:
  *   name: Órdenes
- *   description: Procesamiento de pagos con Stripe
+ *   description: Procesamiento de pagos con Stripe y gestión de órdenes
  */
 
 /**
  * @swagger
  * components:
  *   schemas:
- *     PaymentIntentRequest:
+ *     OrderItem:
  *       type: object
- *       required:
- *         - amount
  *       properties:
- *         amount:
+ *         perfume:
+ *           type: string
+ *           description: ID del perfume
+ *           example: 699b36b2586b5dd952e0639c
+ *         name:
+ *           type: string
+ *           example: Dior Sauvage
+ *         quantity:
  *           type: number
- *           description: Monto total en CLP (zero-decimal currency — sin centavos)
- *           example: 155990
+ *           example: 2
+ *         price:
+ *           type: number
+ *           example: 89990
+ *     ShippingInfo:
+ *       type: object
+ *       properties:
+ *         firstName:
+ *           type: string
+ *           example: Salem
+ *         lastName:
+ *           type: string
+ *           example: Hidd
+ *         email:
+ *           type: string
+ *           example: salem@ejemplo.com
+ *         phone:
+ *           type: string
+ *           example: "+56912345678"
+ *         address:
+ *           type: string
+ *           example: Av. Providencia 1234
+ *         city:
+ *           type: string
+ *           example: Santiago
+ *         region:
+ *           type: string
+ *           example: Metropolitana
+ *         zip:
+ *           type: string
+ *           example: "7500000"
+ *     Order:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *         orderNumber:
+ *           type: string
+ *           example: ELG-482910
  *         items:
  *           type: array
- *           description: Ítems del carrito para la descripción del pago
  *           items:
- *             type: object
- *             properties:
- *               quantity:
- *                 type: number
- *                 example: 2
- *               perfume:
- *                 type: object
- *                 properties:
- *                   name:
- *                     type: string
- *                     example: Dior Sauvage
- *     PaymentIntentResponse:
- *       type: object
- *       properties:
- *         success:
- *           type: boolean
- *         data:
- *           type: object
- *           properties:
- *             clientSecret:
- *               type: string
- *               description: Secret que el frontend usa para confirmar el pago con Stripe.js
- *               example: pi_3Oabc_secret_xyz
- *             paymentIntentId:
- *               type: string
- *               example: pi_3Oabc123
- *             amount:
- *               type: number
- *               example: 155990
- *             currency:
- *               type: string
- *               example: clp
+ *             $ref: '#/components/schemas/OrderItem'
+ *         shipping:
+ *           $ref: '#/components/schemas/ShippingInfo'
+ *         subtotal:
+ *           type: number
+ *           example: 149980
+ *         shippingCost:
+ *           type: number
+ *           example: 0
+ *         total:
+ *           type: number
+ *           example: 149980
+ *         currency:
+ *           type: string
+ *           example: clp
+ *         status:
+ *           type: string
+ *           enum: [pending, paid, failed, cancelled]
+ *           example: paid
+ *         paymentIntentId:
+ *           type: string
+ *           example: pi_3Oabc123
+ *         createdAt:
+ *           type: string
+ *           format: date-time
  */
 
 /**
  * @swagger
  * /api/orders/create-payment-intent:
  *   post:
- *     summary: Crear un PaymentIntent de Stripe
+ *     summary: Crear PaymentIntent de Stripe y orden pendiente
  *     description: |
- *       Crea un PaymentIntent en Stripe y devuelve el `clientSecret` al frontend.
- *       El frontend usa este secret con Stripe.js para confirmar el pago directamente
- *       con Stripe, sin que la secret key del servidor quede expuesta al cliente.
+ *       Crea un PaymentIntent en Stripe y simultáneamente registra una orden
+ *       con `status: pending` en MongoDB. Devuelve el `clientSecret` para que
+ *       el frontend confirme el pago con Stripe.js.
  *
- *       **Flujo completo:**
- *       1. Frontend llama a este endpoint con el monto total del carrito
- *       2. Backend crea el PaymentIntent usando la `STRIPE_SECRET_KEY`
- *       3. Backend devuelve el `clientSecret`
- *       4. Frontend usa `stripe.confirmCardPayment(clientSecret)` — Stripe procesa el pago
+ *       **Flujo Opción C (sin webhook):**
+ *       1. Frontend llama a este endpoint → se crea el PaymentIntent + Order pendiente
+ *       2. Frontend confirma con `stripe.confirmCardPayment(clientSecret)`
+ *       3. Si `status === succeeded` → frontend llama a `POST /api/orders/confirm`
+ *       4. Backend verifica con Stripe y actualiza la orden a `status: paid`
  *
- *       **Nota sobre CLP:** El peso chileno es una *zero-decimal currency* en Stripe,
- *       por lo que el monto se envía en pesos exactos, sin multiplicar por 100.
+ *       **Nota CLP:** Zero-decimal currency — el monto se envía en pesos exactos, sin centavos.
  *     tags: [Órdenes]
  *     security:
  *       - bearerAuth: []
@@ -92,18 +128,59 @@ const router = express.Router();
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/PaymentIntentRequest'
+ *             type: object
+ *             required:
+ *               - amount
+ *               - items
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 description: Total en CLP (zero-decimal)
+ *                 example: 149980
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   $ref: '#/components/schemas/OrderItem'
+ *               shipping:
+ *                 $ref: '#/components/schemas/ShippingInfo'
+ *               subtotal:
+ *                 type: number
+ *                 example: 149980
+ *               shippingCost:
+ *                 type: number
+ *                 example: 0
  *     responses:
  *       200:
- *         description: PaymentIntent creado exitosamente
+ *         description: PaymentIntent y orden pendiente creados
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/PaymentIntentResponse'
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     clientSecret:
+ *                       type: string
+ *                       example: pi_3Oabc_secret_xyz
+ *                     paymentIntentId:
+ *                       type: string
+ *                       example: pi_3Oabc123
+ *                     orderId:
+ *                       type: string
+ *                     orderNumber:
+ *                       type: string
+ *                       example: ELG-482910
+ *                     amount:
+ *                       type: number
+ *                     currency:
+ *                       type: string
  *       400:
- *         description: Monto inválido
+ *         description: Monto inválido o carrito vacío
  *       401:
- *         description: No autorizado — se requiere token JWT
+ *         description: No autorizado
  *       500:
  *         description: Error al comunicarse con Stripe
  */
@@ -111,10 +188,88 @@ router.post('/create-payment-intent', authenticateToken, createPaymentIntent);
 
 /**
  * @swagger
+ * /api/orders/confirm:
+ *   post:
+ *     summary: Confirmar orden tras pago exitoso
+ *     description: |
+ *       El frontend llama a este endpoint inmediatamente después de que
+ *       `stripe.confirmCardPayment()` devuelve `status: succeeded`.
+ *       El backend verifica el estado con Stripe (no confía solo en el frontend)
+ *       y actualiza la orden de `pending` a `paid` en MongoDB.
+ *     tags: [Órdenes]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - paymentIntentId
+ *             properties:
+ *               paymentIntentId:
+ *                 type: string
+ *                 example: pi_3Oabc123
+ *     responses:
+ *       200:
+ *         description: Orden confirmada y actualizada a paid
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     order:
+ *                       $ref: '#/components/schemas/Order'
+ *       400:
+ *         description: paymentIntentId faltante o pago no exitoso en Stripe
+ *       404:
+ *         description: Orden no encontrada
+ *       401:
+ *         description: No autorizado
+ */
+router.post('/confirm', authenticateToken, confirmOrder);
+
+/**
+ * @swagger
+ * /api/orders/myorders:
+ *   get:
+ *     summary: Obtener historial de órdenes del usuario autenticado
+ *     tags: [Órdenes]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de órdenes del usuario ordenadas por fecha descendente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     orders:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Order'
+ *       401:
+ *         description: No autorizado
+ */
+router.get('/myorders', authenticateToken, getMyOrders);
+
+/**
+ * @swagger
  * /api/orders/payment-intent/{id}:
  *   get:
- *     summary: Obtener estado de un PaymentIntent
- *     description: Consulta el estado de un PaymentIntent previamente creado. Útil para verificar si el pago fue exitoso después de la confirmación.
+ *     summary: Consultar estado de un PaymentIntent en Stripe
  *     tags: [Órdenes]
  *     security:
  *       - bearerAuth: []
@@ -124,7 +279,6 @@ router.post('/create-payment-intent', authenticateToken, createPaymentIntent);
  *         required: true
  *         schema:
  *           type: string
- *         description: ID del PaymentIntent
  *         example: pi_3Oabc123
  *     responses:
  *       200:
@@ -144,54 +298,74 @@ router.post('/create-payment-intent', authenticateToken, createPaymentIntent);
  *                     status:
  *                       type: string
  *                       enum: [requires_payment_method, requires_confirmation, requires_action, processing, succeeded, canceled]
- *                       example: succeeded
  *                     amount:
  *                       type: number
  *                     currency:
  *                       type: string
  *       401:
  *         description: No autorizado
- *       500:
- *         description: Error al consultar Stripe
  */
 router.get('/payment-intent/:id', authenticateToken, getPaymentIntent);
 
 /**
  * @swagger
- * /api/orders/webhook:
- *   post:
- *     summary: Webhook de Stripe
- *     description: |
- *       Endpoint que Stripe llama para notificar eventos de pago (pago exitoso, fallido, etc.).
- *       Verificado con la firma `STRIPE_WEBHOOK_SECRET` para garantizar que la llamada
- *       proviene realmente de Stripe.
- *
- *       **Importante:** Esta ruta debe recibir el body como Buffer raw (no JSON),
- *       por eso está registrada ANTES del middleware `express.json()` en server.js.
- *
- *       **Eventos manejados:**
- *       - `payment_intent.succeeded` — pago completado exitosamente
- *       - `payment_intent.payment_failed` — pago rechazado o fallido
+ * /api/orders/{id}:
+ *   get:
+ *     summary: Obtener una orden por ID
+ *     description: Solo el propietario de la orden puede consultarla.
  *     tags: [Órdenes]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la orden en MongoDB
  *     responses:
  *       200:
- *         description: Evento recibido correctamente
+ *         description: Orden obtenida exitosamente
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 received:
+ *                 success:
  *                   type: boolean
- *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     order:
+ *                       $ref: '#/components/schemas/Order'
+ *       404:
+ *         description: Orden no encontrada
+ *       401:
+ *         description: No autorizado
+ */
+router.get('/:id', authenticateToken, getOrderById);
+
+/**
+ * @swagger
+ * /api/orders/webhook:
+ *   post:
+ *     summary: Webhook de Stripe (respaldo opcional)
+ *     description: |
+ *       Endpoint que Stripe llama para notificar eventos de pago.
+ *       En este proyecto se usa como respaldo — el flujo principal de confirmación
+ *       pasa por `POST /api/orders/confirm` llamado desde el frontend.
+ *
+ *       El webhook actualiza órdenes que hayan quedado en `pending` si el frontend
+ *       no pudo llamar a `/confirm` (por ejemplo, si el usuario cerró el browser).
+ *
+ *       Verificado con `STRIPE_WEBHOOK_SECRET`. Si no está configurado, el endpoint
+ *       responde 200 y no ejecuta ninguna acción.
+ *     tags: [Órdenes]
+ *     responses:
+ *       200:
+ *         description: Evento recibido
  *       400:
- *         description: Firma inválida — el evento no proviene de Stripe
+ *         description: Firma inválida
  */
 router.post('/webhook', express.raw({ type: 'application/json' }), stripeWebhook);
 

@@ -258,3 +258,57 @@ export const deleteMe = async (req, res) => {
     });
   }
 };
+
+
+// @desc    Obtener todos los usuarios
+// @route   GET /api/users/readall
+// @access  Private (admin)
+export const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find({ isActive: true }).select('-password');
+    res.status(200).json({
+      success: true,
+      message: 'Usuarios obtenidos exitosamente',
+      data: { users }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener usuarios',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Actualizar usuario por ID (solo admin)
+// @route   PUT /api/users/update/:id
+// @access  Private (admin)
+export const updateUserById = async (req, res) => {
+  try {
+    const { role } = req.body;
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    }
+
+    if (role && ['user', 'admin'].includes(role)) {
+      user.role = role;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Usuario actualizado correctamente',
+      data: { user: user.toPublicJSON() }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error al actualizar usuario',
+      error: error.message
+    });
+  }
+};
+

@@ -71,19 +71,11 @@ const orderSchema = new mongoose.Schema(
     orderNumber: {
       type: String,
       unique: true,
+      default: () => `ELG-${Math.floor(100000 + Math.random() * 900000)}`,
     },
   },
   { timestamps: true }
 );
-
-// Generar orderNumber automático antes de guardar
-orderSchema.pre('save', function (next) {
-  if (!this.orderNumber) {
-    // Formato: ELG-XXXXXX (6 dígitos aleatorios)
-    this.orderNumber = `ELG-${Math.floor(100000 + Math.random() * 900000)}`;
-  }
-  next();
-});
 
 // Método para respuesta pública
 orderSchema.methods.toPublicJSON = function () {

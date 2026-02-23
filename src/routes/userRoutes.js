@@ -1,7 +1,7 @@
 import express from 'express';
 import { body } from 'express-validator';
-import { register, login, verifyToken, updateUser, deleteMe, getMe } from '../controllers/userController.js';
-import { authenticateToken } from '../middlewares/authMiddleware.js';
+import { register, login, verifyToken, updateUser, deleteMe, getMe, getAllUsers, updateUserById } from '../controllers/userController.js';
+import { authenticateToken, isAdmin } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
@@ -162,5 +162,9 @@ router.get('/getme', authenticateToken, getMe);
  *         description: No autorizado
  */
 router.delete('/deleteme', authenticateToken, deleteMe);
+
+router.get('/readall', authenticateToken, isAdmin, getAllUsers);
+
+router.put('/update/:id', authenticateToken, isAdmin, updateUserById);
 
 export default router;

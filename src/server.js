@@ -11,25 +11,29 @@ import swaggerOptions from "./config/swagger.config.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import perfumeRoutes from "./routes/perfumeRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import orderRoutes from "./routes/orderRoutes.js";
 
 const port = env.port;
 const serverUrl = env.serverURL;
 
-// Inicializar Express
 const app = express();
-// Middlewares
+
+// ── IMPORTANTE: el webhook de Stripe necesita el body RAW (Buffer), no JSON.
+// Por eso se registra ANTES de express.json().
+// La ruta /api/orders/webhook tiene su propio middleware express.raw() en orderRoutes.js
+app.use('/api/orders/webhook', express.raw({ type: 'application/json' }));
+
+// Middlewares globales
 app.use(express.json());
 app.use(cors({ origin: env.cors.origin }));
 app.use(express.urlencoded({ extended: true }));
 
-// Conectar a la base de datos y configurar Swagger
 const startServer = async () => {
   await connectDB();
   const swaggerDocs = swaggerJSDoc(swaggerOptions);
 
   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
-  // Ruta de bienvenida
   app.get("/", (req, res) => {
     res.json({
       message: "🛍️ Bienvenido a la API de Tienda de Perfumes",
@@ -38,7 +42,8 @@ const startServer = async () => {
       endpoints: {
         users: "/api/users",
         products: "/api/perfumes",
-        cart: "/api/cart"
+        cart: "/api/cart",
+        orders: "/api/orders",
       }
     });
   });
@@ -46,13 +51,14 @@ const startServer = async () => {
   app.use("/api/cart", cartRoutes);
   app.use("/api/perfumes", perfumeRoutes);
   app.use("/api/users", userRoutes);
-  // Middleware de manejo de errores
-  app.use(notFound); // Maneja rutas no encontradas
-  app.use(errorHandler); // Maneja errores generales
+  app.use("/api/orders", orderRoutes);
+
+  app.use(notFound);
+  app.use(errorHandler);
 
   app.listen(port, () => {
     console.log(`Servidor corriendo en: ${serverUrl}`);
-      console.log(`Documentación disponible en ${serverUrl}/api-docs`);
+    console.log(`Documentación disponible en ${serverUrl}/api-docs`);
   });
 };
 

@@ -68,3 +68,14 @@ export const generateToken = (id) => {
     expiresIn: env.jwt.expire
   });
 };
+
+//Middleware para determinar si es admin
+export const isAdmin = (req, res, next) => {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      message: 'Acceso denegado — se requiere rol administrador'
+    });
+  }
+  next();
+};

@@ -163,8 +163,93 @@ router.get('/getme', authenticateToken, getMe);
  */
 router.delete('/deleteme', authenticateToken, deleteMe);
 
+// ── Rutas de administración (requieren rol admin) ─────────────────────────────
+
+/**
+ * @swagger
+ * /api/users/readall:
+ *   get:
+ *     summary: Listar todos los usuarios — solo administradores
+ *     tags: [Usuarios]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de usuarios obtenida exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     users:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/UserPublic'
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso denegado — se requiere rol administrador
+ */
 router.get('/readall', authenticateToken, isAdmin, getAllUsers);
 
+/**
+ * @swagger
+ * /api/users/update/{id}:
+ *   put:
+ *     summary: Actualizar rol de un usuario — solo administradores
+ *     tags: [Usuarios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del usuario a actualizar
+ *         example: 699b36b2586b5dd952e0639c
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - role
+ *             properties:
+ *               role:
+ *                 type: string
+ *                 enum: [user, admin]
+ *                 example: admin
+ *     responses:
+ *       200:
+ *         description: Rol actualizado correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       $ref: '#/components/schemas/UserPublic'
+ *       400:
+ *         description: Rol inválido
+ *       401:
+ *         description: No autorizado
+ *       403:
+ *         description: Acceso denegado — se requiere rol administrador
+ *       404:
+ *         description: Usuario no encontrado
+ */
 router.put('/update/:id', authenticateToken, isAdmin, updateUserById);
 
 export default router;

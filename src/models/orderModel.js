@@ -22,13 +22,13 @@ const orderItemSchema = new mongoose.Schema({
 });
 
 const shippingSchema = new mongoose.Schema({
-  firstName:  { type: String, required: true },
-  lastName:   { type: String, required: true },
-  email:      { type: String, required: true },
-  phone:      { type: String, required: true },
-  address:    { type: String, required: true },
-  city:       { type: String, required: true },
-  region:     { type: String, required: true },
+  firstName:  { type: String, default: '' },
+  lastName:   { type: String, default: '' },
+  email:      { type: String, default: '' },
+  phone:      { type: String, default: '' },
+  address:    { type: String, default: '' },
+  city:       { type: String, default: '' },
+  region:     { type: String, default: '' },
   zip:        { type: String, default: '' },
 });
 
